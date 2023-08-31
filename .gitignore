@@ -47,3 +47,6 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+.DS_Store
+raw_data/FrogID4_final_dataset.csv
+raw_data/S_seaice_extent_daily_v3.0.csv
