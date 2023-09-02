@@ -1,5 +1,5 @@
 ---
-title: "DS4B-short-report-1"
+title: "DS4B-short-report-1, Part 1"
 author: "Tsz Ching Li and U7630977"
 date: "1/9/2023"
 Location on GitHub: https://github.com/sharonli126/DS4B-short-report-1 
@@ -15,23 +15,86 @@ output:
         fig_width: 8
         fig_height: 4
 ---
+```{r, include=F}
+library(tidyverse)
+library(styler)
+library(dplyr)
+```
 
-# **Task 1**: Loading the data
+# Loading the data
+```{r}
+data_sea_ice <- read_csv("raw_data/S_seaice_extent_daily_v3.0.csv")
+```
 
-# **Task 2**: Overview Plots
+Is it a scenario that is make sense to tell a data story
 
-### **Task 2.1** Overview Plot 1.0
+#  Data Tidy and Overview
 
-### **Task 2.2**: Overview Plot 2.0
+### Overview Plot 1.0
+```{r}
+summary(data_sea_ice)
+head(data_sea_ice)
+```
 
-### **Task 2.3**: The Final Overview Plot
+```{r, include=FALSE}
+data_sea_ice$Year <-  as.integer(data_sea_ice$Year)
+data_sea_ice$Extent <- as.numeric(data_sea_ice$Extent)
+data_sea_ice$Month <-  as.integer(data_sea_ice$Month)
+```
 
-### **Challenge Task**
+```{r}
+yearly_average_extent <- data_sea_ice %>%
+  group_by(Year) %>%
+  summarise(mean_extent = mean(Extent, na.rm = T))
 
-# **Task 3**: Comparing flowcells
+winter_average_extent <- data_sea_ice %>%
+  filter(Month > 5 & Month < 9) %>% 
+  group_by(Year) %>%
+  summarise(mean_extent = mean(Extent, na.rm = T))
 
-# **Task 4**: Are the flowcells faulty?
+median_yearly <- median(yearly_average_extent$mean_extent, na.rm = T)
 
-### **Task 4.1**: Connecting the dots
+median_winter <- median(winter_average_extent$mean_extent)
+```
 
-### **Task 4.2**: Showing the raw data
+
+# Data Plotting
+```{r}
+ggplot() +
+  geom_line(data = yearly_average_extent, aes(Year, mean_extent), color = "blue") + 
+  geom_point(data = yearly_average_extent, aes(Year, mean_extent)) +
+  geom_hline(yintercept = median_yearly, linetype = "dashed") +
+  geom_line(data = winter_average_extent, aes(Year, mean_extent), color = "red") + 
+  geom_point(data = winter_average_extent, aes(Year, mean_extent)) +
+  geom_hline(yintercept = median_winter, linetype = "dashed") +
+  labs(
+    x = "Year",
+    y = "Average Sea Ice Extent",
+    title = "Average Sea Ice Extent in Winter-Seasonal and Annual",
+    color = "Legend") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1979, 2023, by = 4)) +
+  scale_y_continuous(breaks = seq(6, 20, by = 2)) +
+  annotate("text", 
+           x = 1979, 
+           y = 13.5, 
+           label = "Annual Average", 
+           hjust = 0, 
+           color = "blue") +
+    annotate("text", 
+             x = 1979,
+             y = 17,
+             label = "Winter-Seasonal Average", 
+             hjust = 0, 
+             color = "red") +
+  theme(plot.title = element_text(face = "bold", margin = margin(1, 1, .5, 1, "cm")), 
+        axis.title.x = element_text(vjust = -2)) +
+  coord_fixed(ratio = 3)
+  
+```
+
+
+### The Final Overview Plot
+
+
+
