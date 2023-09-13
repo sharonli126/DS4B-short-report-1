@@ -1,0 +1,167 @@
+---
+title: "DS4B-short-report-1 Part 2"
+author: "Tsz Ching Li and U7630977"
+date: "2/9/2023"
+Location on GitHub: https://github.com/sharonli126/DS4B-short-report-1 
+output:  
+    html_document:
+        toc: true
+        toc_depth: 4
+        theme: cosmo
+        number_sections: false
+        toc_float: true
+        highlight: pygments
+        fig_width: 8
+        fig_height: 4
+---
+
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+at most 3 figures and 1000 words of text 
+
+# Loading the data
+```{r}
+data_frog_species <- read_csv("raw_data/FrogID4_final_dataset.csv")
+```
+
+
+# Data Tidy
+
+## Summary of data
+
+```{r}
+summary(data_frog_species)
+```
+
+## Data Tidy overall
+```{r}
+data_frog_species$eventDate <-as.Date(data_frog_species$eventDate)
+data_frog_species$year <- format(data_frog_species$eventDate, "%Y")
+
+```
+
+
+## Data tidy for Australia-wide species discovery curve
+```{r}
+dt_yr_distinct <- data_frog_species |> 
+  arrange(year, scientificName)  |>
+  group_by(year) |>
+  summarise(scientificName) |>
+  distinct()
+
+distinct_sp <- character(0)
+
+dt_sp_yr_distinct <- data.frame()
+
+for (yr in unique(dt_yr_distinct$year)) {
+  
+  data_each_yr <- filter(dt_yr_distinct, year == !! yr)
+  
+  distinct_sp <- unique(c(distinct_sp, data_each_yr$scientificName))
+  
+  dt_sp_yr_distinct <- rbind(dt_sp_yr_distinct, 
+                                           data.frame(year = yr, 
+                                                      total_number_species_found = length(distinct_sp)))
+}
+
+```
+
+## Data Tidy for Species discovery curves for each state and territory
+```{r}
+dt_yr_st_distinct <- data_frog_species |> 
+  arrange(year, scientificName)  |>
+  group_by(year, stateProvince) |>
+  summarise(scientificName) |>
+  distinct()
+
+distinct_sp <- character(0)
+
+dt_sp_yr_st_distinct <- data.frame()
+
+
+for (st in unique(dt_yr_st_distinct$stateProvince)) {
+  
+  distinct_sp <- character(0)
+  
+  for (yr in unique(dt_yr_st_distinct$year)) {
+    
+    data_each_yrst <- filter(dt_yr_st_distinct, year == yr & stateProvince == st)
+  
+    distinct_sp <- unique(c(distinct_sp, data_each_yrst$scientificName))
+  
+    dt_sp_yr_st_distinct <- rbind(dt_sp_yr_st_distinct, 
+                                           data.frame(year = yr, 
+                                                      state = st,
+                                                      total_number_species_found = length(distinct_sp)))
+    
+  }
+}
+
+```
+
+
+# Plot Overview
+
+## Australia-wide species discovery curve
+```{r}
+# Now you can plot the data
+ggplot(dt_sp_yr_distinct, aes(x = as.numeric(year), y = total_number_species_found)) +
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = 203.5, color = "red", linetype = "dashed") +
+  geom_text(aes(x = 2017.5, y = 200), label = "Chao 1 Estimation", color = "red") +
+  labs(x = "Year", y = "Cumulative Number of Distinct Species") +
+  theme_minimal()
+```
+
+## Species discovery curves for each state and territory
+
+```{r}
+ggplot(dt_sp_yr_st_distinct, aes(x = as.numeric(year), y = total_number_species_found)) +
+  geom_point() +
+  geom_line() +
+  xlab("Year") +
+  ylab("Cumulative Number of Distinct Species") +
+  facet_wrap(~state)
+```
+
+The Chao1 Function
+```{r}
+Chao1 <- function(S_obs, f1, f2) {
+  
+  if (f2 != 0) {
+    S_chao1 <- S_obs + (f1^2) / (2 * f2)
+    var <- (f1 / f2)^2 * ((S_obs - f1) / (f2 - 1))
+    
+  } 
+  else {
+    y <- f1 / f2
+    S_chao1 <- S_obs + (f1 * (f1 - 1)) / (2 * (f2 + f1))
+    var <- f2 * (0.5 * y^2 + y^3 + y^4)
+  }  
+    
+  
+  upperCI <- S_chao1 + 1.96 * sqrt(var)
+  lowerCI <- S_chao1 - 1.96 * sqrt(var)
+  
+  result <- c(S_obs = S_obs, f1 = f1, f2 = f2, S_chao1 = S_chao1, var = var, upperCI = upperCI, lowerCI = lowerCI)
+  names(result) <- c("S_obs", "f1", "f2", "S_chao1", "var", "upperCI", "lowerCI")
+  
+  return(result)
+}
+
+```
+
+## Finding the estimation with up to 2021 data
+```{r}
+S_obs <- n_distinct(data_frog_species$scientificName)
+table_species_count <- table(data_frog_species$scientificName)
+f1 <- sum(table_species_count == 1)
+f2 <- sum(table_species_count == 2)
+Chao1(S_obs, f1, f2)
+```
+
+
