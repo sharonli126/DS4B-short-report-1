@@ -30,7 +30,7 @@ Is it a scenario that is make sense to tell a data story
 
 #  Data Tidy and Overview
 
-### Overview Plot 1.0
+## Data Tidy and Summarise
 ```{r}
 summary(data_sea_ice)
 head(data_sea_ice)
@@ -55,6 +55,7 @@ winter_average_extent <- data_sea_ice %>%
 median_yearly <- median(yearly_average_extent$mean_extent, na.rm = T)
 
 median_winter <- median(winter_average_extent$mean_extent)
+
 ```
 
 
