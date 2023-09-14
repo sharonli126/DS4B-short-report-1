@@ -56,6 +56,33 @@ median_yearly <- median(yearly_average_extent$mean_extent, na.rm = T)
 
 median_winter <- median(winter_average_extent$mean_extent)
 
+sd_yearly <-  sd(yearly_average_extent$mean_extent, na.rm = T)
+
+sd_winter <-sd(winter_average_extent$mean_extent)
+
+average_before_2021 <- data_sea_ice |>
+  filter(Year < 2023)|>
+  group_by(Month) |>
+  summarise(Year = "1978-2017", mean_extent = mean(Extent, na.rm = T))
+
+average_before_2021_sd <- data_sea_ice |>
+  filter(Year < 2023)|>
+  group_by(Month) |>
+  summarise(Year = "Upper Interquartile", sd = sd(Extent, na.rm = T))
+
+average_before_2021_sd <- average_before_2021$sd + average_before_2021$mean_extent
+  
+average_after_2020 <-  data_sea_ice |>
+  filter(Year > 2022)|>
+  group_by(Year, Month) |>
+  summarise(mean_extent = mean(Extent, na.rm = T))
+
+average_after_2020$Year <- as.character(average_after_2020$Year)
+
+average_ice_extent <-  bind_rows(average_after_2020, average_before_2021)
+
+average_ice_extent$Month <- factor(month.abb[as.numeric(average_ice_extent$Month)], levels = month.abb)
+
 ```
 
 
@@ -65,13 +92,17 @@ ggplot() +
   geom_line(data = yearly_average_extent, aes(Year, mean_extent), color = "blue") + 
   geom_point(data = yearly_average_extent, aes(Year, mean_extent)) +
   geom_hline(yintercept = median_yearly, linetype = "dashed") +
+  geom_hline(yintercept = median_yearly + sd_yearly, linetype = "dotted", color = "darkgrey") +
+  geom_hline(yintercept = median_yearly - sd_yearly, linetype = "dotted", color = "darkgrey") +
   geom_line(data = winter_average_extent, aes(Year, mean_extent), color = "red") + 
   geom_point(data = winter_average_extent, aes(Year, mean_extent)) +
   geom_hline(yintercept = median_winter, linetype = "dashed") +
+  geom_hline(yintercept = median_winter + sd_winter, linetype = "dotted", color = "darkgrey") +
+  geom_hline(yintercept = median_winter - sd_winter, linetype = "dotted", color = "darkgrey") +
   labs(
     x = "Year",
-    y = "Average Sea Ice Extent",
-    title = "Average Sea Ice Extent in Winter-Seasonal and Annual",
+    y = "Average Sea Ice Extent (millions of km²)",
+    title = "Average Sea Ice Extent in Winter-Seasonal and Annual of Antarctic Sea",
     color = "Legend") +
   theme_minimal() +
   scale_x_continuous(breaks = seq(1979, 2023, by = 4)) +
@@ -81,21 +112,38 @@ ggplot() +
            y = 13.5, 
            label = "Annual Average", 
            hjust = 0, 
-           color = "blue") +
+           color = "blue",
+           fontface = "bold") +
     annotate("text", 
              x = 1979,
              y = 17,
              label = "Winter-Seasonal Average", 
              hjust = 0, 
-             color = "red") +
+             color = "red", 
+             fontface = "bold") +
   theme(plot.title = element_text(face = "bold", margin = margin(1, 1, .5, 1, "cm")), 
         axis.title.x = element_text(vjust = -2)) +
   coord_fixed(ratio = 3)
   
 ```
 
+```{r}
+ggplot(average_ice_extent) +
+  geom_point(aes(x = Month, y = mean_extent, color = as.factor(Year)), size = 1) +
+  geom_line(aes(x = as.numeric(Month), y = mean_extent, color = as.factor(Year))) +
+  labs(x = "Month",
+    y = "Average Sea Ice Extent (millions of km²)",
+    title = "Monthly Sea Ice Extent in Each Year", 
+    color = "Year") +
+  theme_minimal()
+```
 
-### The Final Overview Plot
 
+## Presnetation script
+Here is a plot showing the average sea ice extent in winter-seasonal and annual of Antarctic Sea. The red line have shown the winter seasonal average with a median visualized by the dashed line and the interquartile range calculated by standard deviation by two grey dotted lines, while the blue line is the annual average, which means including all the season in a year with also the median and the interquartile range showed.
+
+Over the years from 1978, we can observe there is an instance where the average ice extent is slightly above or below the median, but they usually fell within the interquartile range and even if they fell outside the range, the difference is within 1 above the upper interquartile. This minor fluctuation might due to a range of natural factor 
+
+However, since 2021 the average ice extent started to drop and it continuous to drop for 2022 and this year 2023. The average sea ice extent is significantly far from the lower interquartile this year in both winter-seasonal average and annual average with over 2 millions km² and 6 millions km² respectively, It is obviously out of the expected range and the lowest average sea ice extent over 45 years. Therefore, it is absolutely abnormal and a warning of the seriousness of global warming.
 
 
