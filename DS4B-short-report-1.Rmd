@@ -26,124 +26,99 @@ library(dplyr)
 data_sea_ice <- read_csv("raw_data/S_seaice_extent_daily_v3.0.csv")
 ```
 
-Is it a scenario that is make sense to tell a data story
 
-#  Data Tidy and Overview
-
-## Data Tidy and Summarise
-```{r}
-summary(data_sea_ice)
-head(data_sea_ice)
-```
-
+# Data Tidy and Summarise
 ```{r, include=FALSE}
+# Changing the string of the data for easier analysation
 data_sea_ice$Year <-  as.integer(data_sea_ice$Year)
 data_sea_ice$Extent <- as.numeric(data_sea_ice$Extent)
 data_sea_ice$Month <-  as.integer(data_sea_ice$Month)
 ```
 
+
 ```{r}
-yearly_average_extent <- data_sea_ice %>%
-  group_by(Year) %>%
-  summarise(mean_extent = mean(Extent, na.rm = T))
-
-winter_average_extent <- data_sea_ice %>%
-  filter(Month > 5 & Month < 9) %>% 
-  group_by(Year) %>%
-  summarise(mean_extent = mean(Extent, na.rm = T))
-
-median_yearly <- median(yearly_average_extent$mean_extent, na.rm = T)
-
-median_winter <- median(winter_average_extent$mean_extent)
-
-sd_yearly <-  sd(yearly_average_extent$mean_extent, na.rm = T)
-
-sd_winter <-sd(winter_average_extent$mean_extent)
-
-average_before_2021 <- data_sea_ice |>
-  filter(Year < 2023)|>
+# Organizing the data i would like to show
+average_before_2022 <- data_sea_ice |>
+  filter(Year < 2022)|>
   group_by(Month) |>
-  summarise(Year = "1978-2017", mean_extent = mean(Extent, na.rm = T))
+  summarise(Year = "1978-2021", mean_extent = mean(Extent, na.rm = T)) # the Year here is a character
 
-average_before_2021_sd <- data_sea_ice |>
-  filter(Year < 2023)|>
-  group_by(Month) |>
-  summarise(Year = "Upper Interquartile", sd = sd(Extent, na.rm = T))
-
-average_before_2021_sd <- average_before_2021$sd + average_before_2021$mean_extent
-  
-average_after_2020 <-  data_sea_ice |>
-  filter(Year > 2022)|>
+average_2022to2023 <-  data_sea_ice |>
+  filter(Year >= 2022)|>
   group_by(Year, Month) |>
   summarise(mean_extent = mean(Extent, na.rm = T))
 
-average_after_2020$Year <- as.character(average_after_2020$Year)
+# Getting the upper quantile, lower quantile, up and bottom bound from the average in 1978 - 2022
+quantile <- data_sea_ice |>
+  filter(Year < 2022)|>
+  group_by(Month) |>
+  summarise(
+    upper_quantile = quantile(Extent, 0.75, na.rm = T), 
+    lower_quantile = quantile(Extent, 0.25, na.rm = T)
+    ) |>
+  mutate(IQR = upper_quantile - lower_quantile,
+         upper_bound = upper_quantile + 1.5 * IQR,
+         lower_bound = lower_quantile - 1.5 * IQR) # this is a formula i took reference from chatGPT 4.0
+  
+# I have to change "2023" to character show it can combine with average_before_2023 later
+average_2022to2023$Year <- as.character(average_2022to2023$Year)
 
-average_ice_extent <-  bind_rows(average_after_2020, average_before_2021)
+# Combining both the 2023 and 1978-2022 data to use color function later in ggplot
+average_ice_extent <-  bind_rows(average_2022to2023, average_before_2022)
 
+# Using letter form of month name (this two codes took reference from chatGPT 4.0)
 average_ice_extent$Month <- factor(month.abb[as.numeric(average_ice_extent$Month)], levels = month.abb)
+
+quantile$Month  <- factor(month.abb[as.numeric(quantile$Month)], levels = month.abb)
+
+
 
 ```
 
 
 # Data Plotting
-```{r}
+```{r, fig.height = 6, fig.width = 10}
+# This is a plot I got idea from: https://earthobservatory.nasa.gov/world-of-change/sea-ice-arctic#:~:text=This%20sea%20ice%20grows%20dramatically,become%20negative%20in%20recent%20decades.
+# But I have added IQR element to the plot for statiscal support of my statement later
+
 ggplot() +
-  geom_line(data = yearly_average_extent, aes(Year, mean_extent), color = "blue") + 
-  geom_point(data = yearly_average_extent, aes(Year, mean_extent)) +
-  geom_hline(yintercept = median_yearly, linetype = "dashed") +
-  geom_hline(yintercept = median_yearly + sd_yearly, linetype = "dotted", color = "darkgrey") +
-  geom_hline(yintercept = median_yearly - sd_yearly, linetype = "dotted", color = "darkgrey") +
-  geom_line(data = winter_average_extent, aes(Year, mean_extent), color = "red") + 
-  geom_point(data = winter_average_extent, aes(Year, mean_extent)) +
-  geom_hline(yintercept = median_winter, linetype = "dashed") +
-  geom_hline(yintercept = median_winter + sd_winter, linetype = "dotted", color = "darkgrey") +
-  geom_hline(yintercept = median_winter - sd_winter, linetype = "dotted", color = "darkgrey") +
-  labs(
-    x = "Year",
+  geom_point(
+    data = average_ice_extent, 
+    aes(x = Month, y = mean_extent, color = as.factor(Year)), 
+    size = 1
+    ) +
+  geom_ribbon(
+    data = quantile, 
+    aes(x = as.numeric(Month), ymin = lower_quantile, ymax = upper_quantile), 
+    fill = "grey", 
+    alpha = .5
+    ) +
+  geom_ribbon(
+    data = quantile, 
+    aes(x = as.numeric(Month), ymin = lower_bound, ymax = upper_bound), 
+    fill = "grey", 
+    alpha = .2
+    ) +
+  geom_line(
+    data = average_ice_extent, 
+    aes(x = as.numeric(Month), y = mean_extent, color = as.factor(Year))
+    ) +
+  labs(x = "Month",
     y = "Average Sea Ice Extent (millions of km²)",
-    title = "Average Sea Ice Extent in Winter-Seasonal and Annual of Antarctic Sea",
-    color = "Legend") +
+    title = "Monthly Sea Ice Extent for Each Year in Antarctic Sea", 
+    color = "Year") +
   theme_minimal() +
-  scale_x_continuous(breaks = seq(1979, 2023, by = 4)) +
-  scale_y_continuous(breaks = seq(6, 20, by = 2)) +
-  annotate("text", 
-           x = 1979, 
-           y = 13.5, 
-           label = "Annual Average", 
-           hjust = 0, 
-           color = "blue",
-           fontface = "bold") +
-    annotate("text", 
-             x = 1979,
-             y = 17,
-             label = "Winter-Seasonal Average", 
-             hjust = 0, 
-             color = "red", 
-             fontface = "bold") +
-  theme(plot.title = element_text(face = "bold", margin = margin(1, 1, .5, 1, "cm")), 
-        axis.title.x = element_text(vjust = -2)) +
-  coord_fixed(ratio = 3)
+  theme(plot.title = element_text(face = "bold", size = 16)) 
   
 ```
 
-```{r}
-ggplot(average_ice_extent) +
-  geom_point(aes(x = Month, y = mean_extent, color = as.factor(Year)), size = 1) +
-  geom_line(aes(x = as.numeric(Month), y = mean_extent, color = as.factor(Year))) +
-  labs(x = "Month",
-    y = "Average Sea Ice Extent (millions of km²)",
-    title = "Monthly Sea Ice Extent in Each Year", 
-    color = "Year") +
-  theme_minimal()
-```
+# Presnetation script
+Here is a plot showing the average sea ice extent for each year in Antarctic Sea. The plot shows 3 curves, including the red curve demonstrating the average of sea ice extent within 1978 to 2021 by month, the green line represents average for 2022, and red line represents the average of 2023 up until August.
 
+Two grey shaded area surrounding the red line is the inner-quantile range for data within 1978 to 2021. The darker grey area includes middle 50% of the data , and the lighter grey area shaded the upper bound and lower bound, observation fell outside of it are considered as outlier, certainly diverse from the average. 
 
-## Presnetation script
-Here is a plot showing the average sea ice extent in winter-seasonal and annual of Antarctic Sea. The red line have shown the winter seasonal average with a median visualized by the dashed line and the interquartile range calculated by standard deviation by two grey dotted lines, while the blue line is the annual average, which means including all the season in a year with also the median and the interquartile range showed.
+We can obviously see that the average ice extent has already fall lower than the lower quantile in 2022, but still inside the light grey area, entering an uncommon but acceptable range. In contrast, average in 2023 is significantly lower than 2022, especially during the winter season, June to August, which also fells beyond the light area and considered as outlier. This means 2023 is having an abnormally low average ice extent compared to the previous 45 years.
 
-Over the years from 1978, we can observe there is an instance where the average ice extent is slightly above or below the median, but they usually fell within the interquartile range and even if they fell outside the range, the difference is within 1 above the upper interquartile. This minor fluctuation might due to a range of natural factor 
-
-However, since 2021 the average ice extent started to drop and it continuous to drop for 2022 and this year 2023. The average sea ice extent is significantly far from the lower interquartile this year in both winter-seasonal average and annual average with over 2 millions km² and 6 millions km² respectively, It is obviously out of the expected range and the lowest average sea ice extent over 45 years. Therefore, it is absolutely abnormal and a warning of the seriousness of global warming.
+The sea ice extent is a direct barometer for global temperature shift. The aberrations in 2023 is not only an outlier but an indication of a more possibly alarming trend to warn us about the acceleration in global warming pattern, stressing an urgent call from our earth. It is essential to take actions ASAP!
 
 
