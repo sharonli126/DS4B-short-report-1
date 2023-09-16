@@ -23,7 +23,17 @@ library(SpadeR)
 
 at most 3 figures and 1000 words of text 
 
-# **From Citizen Sceience: Exlporing Number of Frog Species in Australia**
+# **From Citizen Science: Exploring Number of Frog Species in Australia**
+
+Do you know there are over 240 species of frog up to 2023 in Australia each with its unique sound? 
+
+According to the Australian Museum, frogs are only amphibians remaining in Australia and over 2300 among 7000 known frog species are at risk of extinction globally (IUCN, 2019). They can live in air, land and water and even can influence water quality in marine area. As a keystone species, they are contributing in many different food chains, the extinction of it can cause a domino effect, leading to an unimaginable consequence. 
+
+Understanding and monitoring the biodiversity is always crucial for conservation, to save frogs from being endanger species, citizen science is applied in recent years by publishing an app which allow everyone to participate in the discovery of frog species around Australia. By using the FrogID App, we are able to take photo and record frogs for species identification, records from each person is going to gather together and form a data set for analyzing the frog species diversity all over the Australia.
+
+In this blog, we are going to explore what we have got so far in the data set from the FrogID app. The data is up to November of 2021, and we are employing R programming language, a powerful tool in statistical analysis and graphical representation. With it, we can tidy and organise our data and produce plots that we want. Its application is also always used in demonstrating in scholar papers and renowned as one of the most user friendly programming language.
+
+We have first loaded the FrogID4_final_dataset.csv exported from the Frog ID apps, and modify the data to summarize observation we wish to share in plots following, including the Australia-wide species discovery curve, Species Discovery Curves by Australia State and estimated number of species vs number of species found by citizen science each year.
 
 ```{r}
 # Loading the data
@@ -34,33 +44,28 @@ data_frog_species <- read_csv("raw_data/FrogID4_final_dataset.csv")
 
 ## Data Tidy
 
-### Summary of data
+### Australia-wide species discovery curve
 ```{r}
-summary(data_frog_species)
-```
-
-### Data Tidy overall
-```{r}
+# changing the type of string for easier modification later
 data_frog_species$eventDate <-as.Date(data_frog_species$eventDate)
 data_frog_species$year <- as.integer(format(data_frog_species$eventDate, "%Y"))
 data_frog_species$month <- as.integer(format(data_frog_species$eventDate, "%m"))
 
-```
-
-
-### Data tidy for Australia-wide species discovery curve
-```{r}
+# Getting a data frame with year, month and scientific name, for counting the number of species found later
+# I have used month as the interval of species counting, since counting by date is going to run a long time and I believe showing by month is enough for looking at the overall trend
 dt_yr_distinct <- data_frog_species |> 
   arrange(year, month, scientificName)  |>
   group_by(year, month) |>
   summarise(scientificName) |>
-  mutate(date = paste(year, sprintf("%02d", month), sep = "-"))
+  mutate(date = paste(year, sprintf("%02d", month), sep = "-")) # combining year and month togethre
   
-
+# The data frame created for storing the result from the for loop
 distinct_sp <- character(0)
 
 dt_sp_ym_distinct <- data.frame()
 
+# The for loop is counting the species of each month and make it in a cumulative way.
+# it has taken reference from chatGPT 4.0 
 for (ym in unique(dt_yr_distinct$date)) {
   
   data_each_m <- filter(dt_yr_distinct, date == ym)
@@ -73,13 +78,14 @@ for (ym in unique(dt_yr_distinct$date)) {
   
 }
 
-dt_sp_ym_distinct$date <- as.Date(paste(dt_sp_ym_distinct$date, "01", sep = "-"))
+dt_sp_ym_distinct$date <- as.Date(paste(dt_sp_ym_distinct$date, "01", sep = "-")) # I added 01 as day for thee date, so that all year-month have day 01, for later plotting the discovery by month
 
+# identify all date represent the start of new year, so that i can highlight the data yearly too, this method is referencing the chatGPT 4.0
 dt_sp_ym_distinct <- dt_sp_ym_distinct |>
-  mutate(new_yr = day(date) == 1 & month(date) == 1)
+  mutate(new_yr = day(date) == 1 & month(date) == 1) 
 ```
 
-### Data tidy for Australia-wide species discovery curve by state
+### Australia-wide species discovery curve by state
 ```{r}
 dt_yr_st_distinct <- data_frog_species |> 
   arrange(year, scientificName)  |>
@@ -124,8 +130,8 @@ ggplot() +
   labs(
     x = "Year", 
     y = "Cumulative Number of Distinct Species", 
-    title = "Frog Species Discovery Curve", 
-    subtitle = "Novenmber 2017 to Novernmber 2021"
+    title = "Australia-wide Frog Species Discovery Curve", 
+    subtitle = "November 2017 to Novermber 2021"
     ) +
   theme_minimal() +
   scale_y_continuous(breaks = seq(80, 210, by = 20)) +
@@ -140,7 +146,7 @@ ggplot() +
   
 ```
 
-
+The figure shows the species found with FrogID apps over 49 months, from November 2017 to November 2021. We can see the first month data have already recorded around 90 species, the exploring of frog species is efficient for the first few months, but we can see it become slowly increasing by time, in 2020 to 2021, we have only noted 1 new species. This has actually show the progress of frog species finding, and it indicates we might be getting close to have all number of frog species, since it is getting harder to find new species.
 
 ### Species discovery curves for each state and territory
 
@@ -150,12 +156,11 @@ ggplot(data = dt_sp_yr_st_distinct, aes(x = as.numeric(year), y = total_number_s
   geom_line() +
   labs(x = "Year", 
        y = "Cumulative Number of Distinct Species", 
-       title = "Species Discovery Curves by Australia Sate") +
+       title = "Species Discovery Curves by Australia State") +
   theme_minimal() +
   facet_wrap(~state)
 
 ```
-
 
 ### Chao1 Function
 ```{r}
@@ -261,3 +266,6 @@ ggplot() +
 ```
 
 
+## Reference
+https://www.thewetlandscentre.org.au/blog/frogology/#:~:text=The%20importance%20of%20frogs%20can,and%20quality%20of%20an%20ecosystem. 
+https://australian.museum/learn/animals/frogs/?gclid=CjwKCAjwpJWoBhA8EiwAHZFzfrtIPKFogk78Ghj6EmVD2OxXXiBp0WxOjwM6h6xtET0SgeXoYHhw1RoC4s8QAvD_BwE
