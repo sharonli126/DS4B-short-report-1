@@ -15,30 +15,31 @@ output:
         fig_height: 4
 ---
 
-```{r}
+```{r, include = F}
 library(tidyverse)
 library(dplyr)
-install.packages("SpadeR")
 library(SpadeR)
 ```
 
 at most 3 figures and 1000 words of text 
 
-# Loading the data
+# **From Citizen Sceience: Exlporing Number of Frog Species in Australia**
+
 ```{r}
+# Loading the data
 data_frog_species <- read_csv("raw_data/FrogID4_final_dataset.csv")
 ```
 
 
-# Data Tidy
 
-## Summary of data
+## Data Tidy
 
+### Summary of data
 ```{r}
 summary(data_frog_species)
 ```
 
-## Data Tidy overall
+### Data Tidy overall
 ```{r}
 data_frog_species$eventDate <-as.Date(data_frog_species$eventDate)
 data_frog_species$year <- as.integer(format(data_frog_species$eventDate, "%Y"))
@@ -47,7 +48,7 @@ data_frog_species$month <- as.integer(format(data_frog_species$eventDate, "%m"))
 ```
 
 
-## Data tidy for Australia-wide species discovery curve
+### Data tidy for Australia-wide species discovery curve
 ```{r}
 dt_yr_distinct <- data_frog_species |> 
   arrange(year, month, scientificName)  |>
@@ -73,9 +74,12 @@ for (ym in unique(dt_yr_distinct$date)) {
 }
 
 dt_sp_ym_distinct$date <- as.Date(paste(dt_sp_ym_distinct$date, "01", sep = "-"))
+
+dt_sp_ym_distinct <- dt_sp_ym_distinct |>
+  mutate(new_yr = day(date) == 1 & month(date) == 1)
 ```
 
-## ## Data tidy for Australia-wide species discovery curve by state
+### Data tidy for Australia-wide species discovery curve by state
 ```{r}
 dt_yr_st_distinct <- data_frog_species |> 
   arrange(year, scientificName)  |>
@@ -110,45 +114,50 @@ for (st in unique(dt_yr_st_distinct$stateProvince)) {
 ```
 
 
-# Plot Overview
+## Plot Overview
 
-## Australia-wide species discovery curve
+### Australia-wide species discovery curve
 ```{r}
-# Now you can plot the data
 ggplot() +
-  geom_point(data = dt_sp_ym_distinct, aes(x = date, y = total_number_species_found)) +
+  geom_point(data = dt_sp_ym_distinct, aes(x = date, y = total_number_species_found, color = factor(new_yr))) +
   geom_line(data = dt_sp_ym_distinct, aes(x = date, y = total_number_species_found)) +
   labs(
     x = "Year", 
     y = "Cumulative Number of Distinct Species", 
     title = "Frog Species Discovery Curve", 
-    subtitle = "Nov 2017 to Nov 2021"
+    subtitle = "Novenmber 2017 to Novernmber 2021"
     ) +
   theme_minimal() +
   scale_y_continuous(breaks = seq(80, 210, by = 20)) +
-  theme(plot.title = element_text(face = "bold", size = 16))
+  theme(plot.title = element_text(face = "bold", size = 16)) +
+  geom_text(
+    data = filter(dt_sp_ym_distinct, new_yr),
+    aes(x = date, y = total_number_species_found, label = total_number_species_found),
+    color = "red",
+    vjust = -1,
+    hjust = .8) +
+  scale_colour_manual(values = c("TRUE" = "red", "FALSE" = "black"), guide = F)
   
 ```
 
 
 
-## Species discovery curves for each state and territory
+### Species discovery curves for each state and territory
 
 ```{r}
 ggplot(data = dt_sp_yr_st_distinct, aes(x = as.numeric(year), y = total_number_species_found)) +
   geom_point() +
   geom_line() +
-  xlab("Year") +
-  ylab("Cumulative Number of Distinct Species") +
+  labs(x = "Year", 
+       y = "Cumulative Number of Distinct Species", 
+       title = "Species Discovery Curves by Australia Sate") +
   theme_minimal() +
   facet_wrap(~state)
 
 ```
 
 
-# Finding the estimation with up to 2021 data
-
-## Chao1 Function
+### Chao1 Function
 ```{r}
 Chao1 <- function(S_obs, f1, f2) {
   
@@ -189,7 +198,8 @@ Chao1 <- function(S_obs, f1, f2) {
 
 ```
 
-## Creating estimated number of species in each year
+### Creating estimated number of species in each year
+
 ```{r}
 Chao1_df <- data.frame()
 upper_lower_CI <- data.frame()
@@ -215,7 +225,7 @@ Chao1_df <- Chao1_df |>
   mutate(category = "Estimated number of species")
 ```
 
-## Number of cumulative species found each year
+### Number of cumulative species found each year
 ```{r}
 dt_sp_yr_distinct <- data.frame()
 distinct_sp <- as.character()
@@ -236,7 +246,8 @@ dt_sp_yr_distinct <- dt_sp_yr_distinct |>
   mutate(category = "Number of found species")
 ```
 
-## Plot for Estimation with 95% interval VS Number of found species
+### Plot for Estimationwith 95% interval VS Number of found species
+
 ```{r}
 est_vs_found <- rbind(Chao1_df, dt_sp_yr_distinct)
 
